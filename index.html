@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>휘매쓰 연산 챌린지!</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f8ff;
+            text-align: center;
+        }
+        #gameContainer {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        #title {
+            font-size: 48px;
+            margin-top: 50px;
+            color: #2e8b57;
+        }
+        #difficultySelection, #questionContainer, #gameOverContainer {
+            margin-top: 30px;
+        }
+        #difficultySelection input[type="text"] {
+            font-size: 24px;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+        .energyBar {
+            width: 100%;
+            background-color: #ddd;
+            height: 30px;
+            position: relative;
+            margin-top: 20px;
+        }
+        .energy {
+            background-color: #76c7c0;
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+        .optionButton {
+            display: block;
+            margin: 15px auto;
+            padding: 15px 30px;
+            font-size: 18px;
+            background-color: #ffffff;
+            border: 2px solid #2e8b57;
+            cursor: pointer;
+            width: 60%;
+            border-radius: 5px;
+        }
+        .optionButton:hover {
+            background-color: #e0ffe0;
+        }
+        #score, #lives, #totalTime {
+            font-size: 24px;
+            margin-top: 20px;
+        }
+        #popup {
+            display: none;
+            position: fixed;
+            background-color: rgba(0,0,0,0.5);
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            justify-content: center;
+            align-items: center;
+        }
+        #popupContent {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        #popupContent button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="title">휘매쓰 연산 챌린지!</div>
+        <!-- 첫화면: 이름 입력란과 난이도 선택 -->
+        <div id="difficultySelection">
+            <input type="text" id="nameInput" placeholder="이름을 입력하세요">
+            <h2>난이도를 선택하세요</h2>
+            <button class="optionButton" onclick="startGame('최상')">최상</button>
+            <button class="optionButton" onclick="startGame('상')">상</button>
+            <button class="optionButton" onclick="startGame('중')">중</button>
+            <button class="optionButton" onclick="startGame('하')">하</button>
+        </div>
+        <!-- 문제 진행 영역 -->
+        <div id="questionContainer" style="display:none;">
+            <div id="energyBar" class="energyBar">
+                <div id="energy" class="energy"></div>
+            </div>
+            <div id="question" style="font-size:24px; margin-top:20px;"></div>
+            <div id="options"></div>
+            <div id="feedback" style="font-size:20px; margin-top:20px; color:red;"></div>
+            <div id="score">점수: 0</div>
+            <div id="lives">남은 기회: 3</div>
+            <div id="totalTime">총 게임 시간: 0초</div>
+            <!-- '다음문제' 버튼: 답안을 선택한 후에 나타남 -->
+            <div id="nextContainer" style="display:none; margin-top:20px;">
+                <button class="optionButton" id="nextButton" onclick="nextQuestion()">다음문제</button>
+            </div>
+        </div>
+        <!-- 게임 종료 후 화면: 점수, 경과시간, 전송하기 버튼 및 다시 시작 버튼 -->
+        <div id="gameOverContainer" style="display:none;">
+            <h2 id="gameOverMessage"></h2>
+            <button class="optionButton" onclick="sendData()" id="sendButton">전송하기</button>
+            <div id="response" style="margin-top:10px;"></div>
+            <button class="optionButton" onclick="restartGame()">다시 시작</button>
+        </div>
+    </div>
+    <div id="popup">
+        <div id="popupContent">
+            <h2 id="popupMessage"></h2>
+            <button onclick="closePopup()">닫기</button>
+        </div>
+    </div>
+    <script>
+        let userName = "";
+        let questions = [
+            // (여기 기존에 작성된 문제들을 그대로 포함합니다.)
+            {
+                type: '덧셈',
+                question: '운동회에서 은지는 47개의 메달을 땄고, 지훈이는 52개의 메달을 땄습니다. 누가 메달을 몇 개 더 많이 땄는지 구해 보세요.',
+                answer: '지훈이, 5개',
+                options: ['은지, 5개', '지훈이, 5개', '은지, 4개', '지훈이, 4개']
+            },
+            {
+                type: '덧셈',
+                question: '미술 시간에 수민이는 그림을 35장 그렸고, 하은이는 48장을 그렸습니다. 누가 그림을 몇 장 더 많이 그렸는지 구해 보세요.',
+                answer: '하은이, 13장',
+                options: ['하은이, 13장', '수민이, 13장', '하은이, 12장', '수민이, 12장']
+            },
+            {
+                type: '덧셈',
+                question: '할머니 댁에서 준호는 귤을 28개 먹었고, 수아는 36개를 먹었습니다. 누가 귤을 몇 개 더 많이 먹었는지 구해 보세요.',
+                answer: '수아, 8개',
+                options: ['수아, 8개', '준호, 8개', '수아, 7개', '준호, 7개']
+            },
+            {
+                type: '덧셈',
+                question: '책을 지훈이는 54권 읽었고, 민수는 49권 읽었습니다. 누가 책을 몇 권 더 많이 읽었는지 구해 보세요.',
+                answer: '지훈이, 5권',
+                options: ['민수, 5권', '지훈이, 5권', '민수, 4권', '지훈이, 4권']
+            },
+            {
+                type: '덧셈',
+                question: '동물원에서 윤서는 동물을 68마리 보고, 현준이는 75마리를 보았습니다. 누가 동물을 몇 마리 더 많이 보았는지 구해 보세요.',
+                answer: '현준이, 7마리',
+                options: ['윤서, 7마리', '현준이, 7마리', '윤서, 6마리', '현준이, 6마리']
+            },
+            {
+                type: '덧셈',
+                question: '산책하면서 은우는 꽃을 26송이 발견했고, 수진이는 39송이를 발견했습니다. 누가 꽃을 몇 송이 더 많이 발견했는지 구해 보세요.',
+                answer: '수진이, 13송이',
+                options: ['수진이, 13송이', '은우, 13송이', '수진이, 12송이', '은우, 12송이']
+            },
+            {
+                type: '덧셈',
+                question: '게임에서 지민이는 점수 81점을 얻었고, 연수는 88점을 얻었습니다. 누가 점수를 몇 점 더 많이 얻었는지 구해 보세요.',
+                answer: '연수, 7점',
+                options: ['지민이, 7점', '연수, 7점', '지민이, 6점', '연수, 6점']
+            },
+            {
+                type: '덧셈',
+                question: '친구들과 연을 날렸을 때, 민재는 연을 55개 날렸고, 서윤이는 60개 날렸습니다. 누가 연을 몇 개 더 많이 날렸는지 구해 보세요.',
+                answer: '서윤이, 5개',
+                options: ['서윤이, 5개', '민재, 5개', '서윤이, 4개', '민재, 4개']
+            },
+            {
+                type: '뺄셈',
+                question: '공원에 아이들이 64명 있었습니다. 그 중 27명이 집에 가고, 15명이 새로 왔습니다. 지금 공원에 아이들은 몇 명일까요?',
+                answer: '52명',
+                options: ['52명', '53명', '54명', '55명']
+            },
+            {
+                type: '뺄셈',
+                question: '책상 위에 연필이 78자루 있었습니다. 그 중 34자루를 사용하고, 22자루를 새로 가져왔습니다. 지금 연필은 몇 자루일까요?',
+                answer: '66자루',
+                options: ['66자루', '65자루', '64자루', '63자루']
+            },
+            {
+                type: '뺄셈',
+                question: '바구니에 사탕이 85개 있었습니다. 29개를 먹고, 18개를 더 넣었습니다. 바구니에는 사탕이 몇 개 있을까요?',
+                answer: '74개',
+                options: ['74개', '73개', '72개', '71개']
+            },
+            {
+                type: '뺄셈',
+                question: '교실에 학생이 90명 있었습니다. 38명이 체육관에 가고, 12명이 교실로 돌아왔습니다. 지금 교실에는 학생이 몇 명일까요?',
+                answer: '64명',
+                options: ['64명', '63명', '62명', '61명']
+            },
+            {
+                type: '뺄셈',
+                question: '동물원에 원숭이 47마리가 있었습니다. 19마리가 숲으로 가고, 25마리가 새로 왔습니다. 지금 원숭이는 몇 마리일까요?',
+                answer: '53마리',
+                options: ['53마리', '52마리', '51마리', '50마리']
+            },
+            {
+                type: '뺄셈',
+                question: '가게에 빵이 68개 있었습니다. 24개를 팔고, 16개를 더 만들었습니다. 지금 빵은 몇 개일까요?',
+                answer: '60개',
+                options: ['60개', '59개', '58개', '57개']
+            },
+            {
+                type: '뺄셈',
+                question: '마당에 새가 73마리 있었습니다. 35마리가 날아가고, 28마리가 날아왔습니다. 지금 새는 몇 마리일까요?',
+                answer: '66마리',
+                options: ['66마리', '65마리', '64마리', '63마리']
+            },
+            {
+                type: '뺄셈',
+                question: '아빠가 59개의 나무를 심었습니다. 그 중 22개가 말라 죽고, 18개를 새로 심었습니다. 지금 나무는 몇 그루일까요?',
+                answer: '55그루',
+                options: ['55그루', '54그루', '53그루', '52그루']
+            },
+            {
+                type: '덧셈응용',
+                question: '과자 38개를 먹었더니 29개가 남았습니다. 처음에 있던 과자는 모두 몇 개인가요?',
+                answer: '67개',
+                options: ['67개', '66개', '65개', '64개']
+            },
+            {
+                type: '덧셈응용',
+                question: '사탕 54개 중에서 몇 개의 사탕을 먹었습니다. 남은 사탕이 37개일 때 먹은 사탕의 수를 구하세요.',
+                answer: '17개',
+                options: ['17개', '16개', '15개', '14개']
+            },
+            {
+                type: '덧셈응용',
+                question: '연필 68자루 중에서 몇 자루를 잃어버렸습니다. 남은 연필이 55자루일 때 잃어버린 연필의 수를 구하세요.',
+                answer: '13자루',
+                options: ['13자루', '12자루', '11자루', '10자루']
+            },
+            {
+                type: '덧셈응용',
+                question: '쿠키 72개 중에서 몇 개를 친구들에게 주었습니다. 남은 쿠키가 48개일 때 준 쿠키의 수를 구하세요.',
+                answer: '24개',
+                options: ['24개', '23개', '22개', '21개']
+            },
+            {
+                type: '덧셈응용',
+                question: '색종이 57장 중에서 몇 장을 사용했습니다. 남은 색종이가 39장일 때 사용한 색종이의 수를 구하세요.',
+                answer: '18장',
+                options: ['18장', '17장', '16장', '15장']
+            },
+            {
+                type: '덧셈응용',
+                question: '나뭇잎 46장 중에서 몇 장이 바람에 날아갔습니다. 남은 나뭇잎이 31장일 때 날아간 나뭇잎의 수를 구하세요.',
+                answer: '15장',
+                options: ['15장', '14장', '13장', '12장']
+            },
+            {
+                type: '덧셈응용',
+                question: '스티커 63개 중에서 몇 개를 앨범에 붙였습니다. 남은 스티커가 45개일 때 붙인 스티커의 수를 구하세요.',
+                answer: '18개',
+                options: ['18개', '17개', '16개', '15개']
+            },
+            {
+                type: '덧셈응용',
+                question: '장난감 50개 중에서 몇 개를 동생에게 주었습니다. 남은 장난감이 33개일 때 준 장난감의 수를 구하세요.',
+                answer: '17개',
+                options: ['17개', '16개', '15개', '14개']
+            },
+            {
+                type: '혼합',
+                question: '마트에 복숭아가 24개, 토마토가 37개 있습니다. 그 중에서 29개가 썩어서 버렸습니다. 남은 복숭아와 토마토는 몇 개인가요?',
+                answer: '32개',
+                options: ['32개', '31개', '30개', '29개']
+            },
+            {
+                type: '혼합',
+                question: '가게에 사과가 58개, 배가 42개 있습니다. 그 중에서 36개를 팔았습니다. 남은 사과와 배는 몇 개인가요?',
+                answer: '64개',
+                options: ['64개', '63개', '62개', '61개']
+            },
+            {
+                type: '혼합',
+                question: '서점에 책이 39권, 잡지가 28권 있습니다. 그 중 33권을 팔았습니다. 남은 책과 잡지는 몇 권인가요?',
+                answer: '34권',
+                options: ['34권', '33권', '32권', '31권']
+            },
+            {
+                type: '혼합',
+                question: '어항에 금붕어가 18마리, 구피가 26마리 있습니다. 그 중 22마리가 죽었습니다. 남은 물고기는 몇 마리인가요?',
+                answer: '22마리',
+                options: ['22마리', '21마리', '20마리', '19마리']
+            },
+            {
+                type: '혼합',
+                question: '수영장에 어린이가 42명, 어른이 35명 있습니다. 그 중 48명이 나갔습니다. 지금 수영장에는 몇 명이 남아있나요?',
+                answer: '29명',
+                options: ['29명', '28명', '27명', '26명']
+            },
+            {
+                type: '혼합',
+                question: '공원에 나무가 53그루, 꽃이 47송이 있습니다. 그 중 38그루가 베어졌습니다. 남은 나무와 꽃은 몇 그루와 몇 송이인가요?',
+                answer: '62개',
+                options: ['62개', '61개', '60개', '59개']
+            },
+            {
+                type: '혼합',
+                question: '장난감 가게에 자동차가 44개, 로봇이 36개 있습니다. 그 중 50개를 팔았습니다. 남은 장난감은 몇 개인가요?',
+                answer: '30개',
+                options: ['30개', '29개', '28개', '27개']
+            },
+            {
+                type: '혼합',
+                question: '냉장고에 우유가 25팩, 주스가 39팩 있습니다. 그 중 40팩을 마셨습니다. 남은 우유와 주스는 몇 팩인가요?',
+                answer: '24팩',
+                options: ['24팩', '23팩', '22팩', '21팩']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 12살이고 나는 동생보다 7살이 더 많습니다. 언니는 나보다 5살이 더 많습니다. 언니는 몇 살인가요?',
+                answer: '24살',
+                options: ['24살', '23살', '22살', '21살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 15살이고 나는 동생보다 5살이 더 많습니다. 형은 나보다 4살이 더 많습니다. 형은 몇 살인가요?',
+                answer: '24살',
+                options: ['24살', '23살', '22살', '21살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 18살이고 나는 동생보다 6살이 더 많습니다. 누나는 나보다 3살이 더 많습니다. 누나는 몇 살인가요?',
+                answer: '27살',
+                options: ['27살', '26살', '25살', '24살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 21살이고 나는 동생보다 2살이 더 많습니다. 오빠는 나보다 5살이 더 많습니다. 오빠는 몇 살인가요?',
+                answer: '28살',
+                options: ['28살', '27살', '26살', '25살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 14살이고 나는 동생보다 8살이 더 많습니다. 언니는 나보다 2살이 더 많습니다. 언니는 몇 살인가요?',
+                answer: '24살',
+                options: ['24살', '23살', '22살', '21살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 16살이고 나는 동생보다 3살이 더 많습니다. 형은 나보다 6살이 더 많습니다. 형은 몇 살인가요?',
+                answer: '25살',
+                options: ['25살', '24살', '23살', '22살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 19살이고 나는 동생보다 4살이 더 많습니다. 누나는 나보다 5살이 더 많습니다. 누나는 몇 살인가요?',
+                answer: '28살',
+                options: ['28살', '27살', '26살', '25살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 22살이고 나는 동생보다 2살이 더 많습니다. 언니는 나보다 3살이 더 많습니다. 언니는 몇 살인가요?',
+                answer: '27살',
+                options: ['27살', '26살', '25살', '24살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 12살이고 나는 동생보다 7살이 더 많습니다. 언니는 나보다 5살이 더 많습니다. 세 사람의 나이를 모두 더하면 몇 살일까요?',
+                answer: '57살',
+                options: ['57살', '56살', '55살', '54살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 15살이고 나는 동생보다 5살이 더 많습니다. 형은 나보다 4살이 더 많습니다. 세 사람의 나이를 모두 더하면 몇 살일까요?',
+                answer: '54살',
+                options: ['54살', '53살', '52살', '51살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 18살이고 나는 동생보다 6살이 더 많습니다. 누나는 나보다 3살이 더 많습니다. 세 사람의 나이를 모두 더하면 몇 살일까요?',
+                answer: '63살',
+                options: ['63살', '62살', '61살', '60살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 21살이고 나는 동생보다 2살이 더 많습니다. 오빠는 나보다 5살이 더 많습니다. 세 사람의 나이를 모두 더하면 몇 살일까요?',
+                answer: '69살',
+                options: ['69살', '68살', '67살', '66살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 14살이고 나는 동생보다 8살이 더 많습니다. 언니는 나보다 2살이 더 많습니다. 세 사람의 나이를 모두 더하면 몇 살일까요?',
+                answer: '60살',
+                options: ['60살', '59살', '58살', '57살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 16살이고 나는 동생보다 3살이 더 많습니다. 형은 나보다 6살이 더 많습니다. 세 사람의 나이를 모두 더하면 몇 살일까요?',
+                answer: '60살',
+                options: ['60살', '59살', '58살', '57살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 19살이고 나는 동생보다 4살이 더 많습니다. 누나는 나보다 5살이 더 많습니다. 세 사람의 나이를 모두 더하면 몇 살일까요?',
+                answer: '71살',
+                options: ['71살', '70살', '69살', '68살']
+            },
+            {
+                type: '덧셈응용',
+                question: '동생은 22살이고 나는 동생보다 2살이 더 많습니다. 언니는 나보다 3살이 더 많습니다. 세 사람의 나이를 모두 더하면 몇 살일까요?',
+                answer: '71살',
+                options: ['71살', '70살', '69살', '68살']
+            },
+            {
+                type: '혼합',
+                question: '빨간색 구슬이 34개, 파란색 구슬이 28개 있습니다. 노란색 구슬은 빨간색 구슬과 파란색 구슬을 더한 것보다 15개 더 적다면 노란색 구슬은 몇 개인가요?',
+                answer: '47개',
+                options: ['47개', '46개', '45개', '44개']
+            },
+            {
+                type: '혼합',
+                question: '사과가 52개, 배가 47개 있습니다. 복숭아는 사과와 배를 더한 것보다 20개 더 적다면 복숭아는 몇 개인가요?',
+                answer: '79개',
+                options: ['79개', '78개', '77개', '76개']
+            },
+            {
+                type: '혼합',
+                question: '연필이 25자루, 펜이 39자루 있습니다. 지우개는 연필과 펜을 더한 것보다 18개 더 적다면 지우개는 몇 개인가요?',
+                answer: '46개',
+                options: ['46개', '45개', '44개', '43개']
+            },
+            {
+                type: '혼합',
+                question: '개구리가 27마리, 거북이가 38마리 있습니다. 물고기는 개구리와 거북이를 더한 것보다 25마리 더 적다면 물고기는 몇 마리인가요?',
+                answer: '40마리',
+                options: ['40마리', '39마리', '38마리', '37마리']
+            },
+            {
+                type: '혼합',
+                question: '장난감 자동차가 36개, 로봇이 45개 있습니다. 인형은 자동차와 로봇을 더한 것보다 30개 더 적다면 인형은 몇 개인가요?',
+                answer: '51개',
+                options: ['51개', '50개', '49개', '48개']
+            },
+            {
+                type: '혼합',
+                question: '초콜릿이 29개, 사탕이 57개 있습니다. 쿠키는 초콜릿과 사탕을 더한 것보다 35개 더 적다면 쿠키는 몇 개인가요?',
+                answer: '51개',
+                options: ['51개', '50개', '49개', '48개']
+            },
+            {
+                type: '혼합',
+                question: '모자 48개, 스카프 36개가 있습니다. 장갑은 모자와 스카프를 더한 것보다 40개 더 적다면 장갑은 몇 개인가요?',
+                answer: '44개',
+                options: ['44개', '43개', '42개', '41개']
+            },
+            {
+                type: '혼합',
+                question: '책이 61권, 노트가 24권 있습니다. 연필은 책과 노트를 더한 것보다 30개 더 적다면 연필은 몇 개인가요?',
+                answer: '55개',
+                options: ['55개', '54개', '53개', '52개']
+            },
+            {
+                type: '덧셈응용',
+                question: '풍선 65개 중에서 몇 개의 풍선이 터졌습니다. 남은 풍선이 47개일 때 터진 풍선의 수를 구하세요.',
+                answer: '18개',
+                options: ['18개', '17개', '16개', '15개']
+            },
+            {
+                type: '덧셈응용',
+                question: '물감 58통 중에서 몇 통을 사용했습니다. 남은 물감이 39통일 때 사용한 물감의 수를 구하세요.',
+                answer: '19통',
+                options: ['19통', '18통', '17통', '16통']
+            },
+            {
+                type: '덧셈응용',
+                question: '스티커 72개 중에서 몇 개를 앨범에 붙였습니다. 남은 스티커가 53개일 때 붙인 스티커의 수를 구하세요.',
+                answer: '19개',
+                options: ['19개', '18개', '17개', '16개']
+            },
+            {
+                type: '덧셈응용',
+                question: '장난감 85개 중에서 몇 개를 동생에게 주었습니다. 남은 장난감이 67개일 때 준 장난감의 수를 구하세요.',
+                answer: '18개',
+                options: ['18개', '17개', '16개', '15개']
+            },
+            {
+                type: '덧셈응용',
+                question: '사탕 90개 중에서 몇 개의 사탕을 먹었습니다. 남은 사탕이 72개일 때 먹은 사탕의 수를 구하세요.',
+                answer: '18개',
+                options: ['18개', '17개', '16개', '15개']
+            },
+            {
+                type: '덧셈응용',
+                question: '연필 49자루 중에서 몇 자루를 잃어버렸습니다. 남은 연필이 31자루일 때 잃어버린 연필의 수를 구하세요.',
+                answer: '18자루',
+                options: ['18자루', '17자루', '16자루', '15자루']
+            },
+            {
+                type: '덧셈응용',
+                question: '쿠키 66개 중에서 몇 개를 친구들에게 주었습니다. 남은 쿠키가 49개일 때 준 쿠키의 수를 구하세요.',
+                answer: '17개',
+                options: ['17개', '16개', '15개', '14개']
+            },
+            {
+                type: '덧셈응용',
+                question: '색종이 83장 중에서 몇 장을 사용했습니다. 남은 색종이가 65장일 때 사용한 색종이의 수를 구하세요.',
+                answer: '18장',
+                options: ['18장', '17장', '16장', '15장']
+            }
+        ];
+
+        let currentQuestion = {};
+        let score = 0;
+        let lives = 3;
+        let difficulty = '';
+        let timeLimit = 0;
+        let energyInterval;
+        let totalTime = 0;
+        let totalTimeInterval;
+        let energyPercentage = 100;
+        let decreaseRate = 1; // 매 라운드마다 증가
+        let answeredQuestions = [];
+        let scoreIncrement = 0;
+
+        function startGame(selectedDifficulty) {
+            let name = document.getElementById('nameInput').value;
+            if (!name) {
+                alert("이름을 입력하세요.");
+                return;
+            }
+            userName = name;
+            difficulty = selectedDifficulty;
+            switch(difficulty) {
+                case '최상':
+                    timeLimit = 20000; // 20초
+                    scoreIncrement = 20;
+                    break;
+                case '상':
+                    timeLimit = 30000; // 30초
+                    scoreIncrement = 15;
+                    break;
+                case '중':
+                    timeLimit = 40000; // 40초
+                    scoreIncrement = 13;
+                    break;
+                case '하':
+                    timeLimit = Infinity; // 시간 제한 없음
+                    scoreIncrement = 10;
+                    break;
+            }
+            document.getElementById('difficultySelection').style.display = 'none';
+            document.getElementById('questionContainer').style.display = 'block';
+            totalTimeInterval = setInterval(() => {
+                totalTime++;
+                document.getElementById('totalTime').innerText = '총 게임 시간: ' + totalTime + '초';
+            }, 1000);
+            nextQuestion();
+        }
+
+        function nextQuestion() {
+            document.getElementById('nextContainer').style.display = 'none';
+            if (lives <= 0) {
+                gameOver();
+                return;
+            }
+            energyPercentage = 100;
+            if (difficulty !== '하') {
+                clearInterval(energyInterval);
+                energyInterval = setInterval(() => {
+                    energyPercentage -= (100 / (timeLimit / decreaseRate / 100));
+                    if (energyPercentage <= 0) {
+                        energyPercentage = 0;
+                        clearInterval(energyInterval);
+                        lives--;
+                        document.getElementById('lives').innerText = '남은 기회: ' + lives;
+                        document.getElementById('feedback').innerText = '시간 초과! 다음 문제로 넘어갑니다.';
+                        setTimeout(() => {
+                            document.getElementById('feedback').innerText = '';
+                            nextQuestion();
+                        }, 2000);
+                        return;
+                    }
+                    document.getElementById('energy').style.width = energyPercentage + '%';
+                }, 100);
+            } else {
+                document.getElementById('energyBar').style.display = 'none';
+            }
+            if (answeredQuestions.length === questions.length) {
+                answeredQuestions = [];
+            }
+            do {
+                currentQuestion = questions[Math.floor(Math.random() * questions.length)];
+            } while (answeredQuestions.includes(currentQuestion));
+            answeredQuestions.push(currentQuestion);
+            document.getElementById('question').innerText = currentQuestion.question;
+            let options = [...currentQuestion.options];
+            options = [...new Set(options)]; // 중복 제거
+            options.sort(() => Math.random() - 0.5);
+            let optionsHtml = '';
+            options.forEach((option) => {
+                optionsHtml += `<button class="optionButton" onclick="checkAnswer('${option}')">${option}</button>`;
+            });
+            document.getElementById('options').innerHTML = optionsHtml;
+        }
+
+        function checkAnswer(selectedOption) {
+            clearInterval(energyInterval);
+            if (selectedOption === currentQuestion.answer) {
+                score += scoreIncrement;
+                document.getElementById('score').innerText = '점수: ' + score;
+                document.getElementById('feedback').innerText = '정답입니다!';
+                randomPopup();
+            } else {
+                lives--;
+                document.getElementById('lives').innerText = '남은 기회: ' + lives;
+                document.getElementById('feedback').innerText = `오답입니다. 정답은 "${currentQuestion.answer}" 입니다.`;
+            }
+            let optionButtons = document.querySelectorAll('#options button');
+            optionButtons.forEach(button => button.disabled = true);
+            if (lives <= 0) {
+                gameOver();
+            } else {
+                document.getElementById('nextContainer').style.display = 'block';
+            }
+        }
+
+        function gameOver() {
+            clearInterval(totalTimeInterval);
+            document.getElementById('questionContainer').style.display = 'none';
+            document.getElementById('gameOverContainer').style.display = 'block';
+            document.getElementById('gameOverMessage').innerText = '게임 종료! 최종 점수: ' + score + '점, 경과 시간: ' + totalTime + '초';
+        }
+
+        function restartGame() {
+            score = 0;
+            lives = 3;
+            totalTime = 0;
+            answeredQuestions = [];
+            document.getElementById('score').innerText = '점수: ' + score;
+            document.getElementById('lives').innerText = '남은 기회: ' + lives;
+            document.getElementById('totalTime').innerText = '총 게임 시간: ' + totalTime + '초';
+            document.getElementById('gameOverContainer').style.display = 'none';
+            document.getElementById('difficultySelection').style.display = 'block';
+            document.getElementById('questionContainer').style.display = 'none';
+        }
+
+        function closePopup() {
+            document.getElementById('popup').style.display = 'none';
+        }
+
+        function randomPopup() {
+            let randomNumber = Math.random();
+            if (randomNumber < 0.0001) {
+                showPopup('축하합니다! 5000원 상품권에 당첨되셨습니다!');
+            } else if (randomNumber < 0.001) {
+                showPopup('축하합니다! 3000원 상품권에 당첨되셨습니다!');
+            } else if (randomNumber < 0.002) {
+                showPopup('축하합니다! 1회 면제권을 획득하셨습니다!');
+                lives++;
+                document.getElementById('lives').innerText = '남은 기회: ' + lives;
+            }
+        }
+
+        function showPopup(message) {
+            document.getElementById('popupMessage').innerText = message;
+            document.getElementById('popup').style.display = 'flex';
+        }
+
+        async function sendData() {
+            const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
+            const requestData = {
+                game: "휘매쓰 연산 챌린지!",
+                name: userName,
+                score: parseInt(score, 10),
+                elapsedTime: parseInt(totalTime, 10)
+            };
+            try {
+                const response = await fetch(FUNCTION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                const responseData = await response.json();
+                if (response.ok) {
+                    document.getElementById('response').innerText = `성공: ${JSON.stringify(responseData, null, 2)}`;
+                } else {
+                    document.getElementById('response').innerText = `오류: ${JSON.stringify(responseData, null, 2)}`;
+                }
+            } catch (error) {
+                console.error('요청 실패:', error);
+                document.getElementById('response').innerText = `네트워크 오류: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
